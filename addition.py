@@ -81,12 +81,12 @@ class ALU:
         Returns: (result_bitvec, final_carry)
         """
         if len(a) > 32 or len(b) > 32:
-            result = [0] * 32
+            result = [0] * 64
         else:
             result = [0] * 32
         carry = carry_in
         
-        for i in range(32):
+        for i in range(len(result)):
             result[i], carry = self._full_adder(a[i], b[i], carry)
         
         return result, carry
@@ -96,7 +96,7 @@ class ALU:
         # Invert all bits
         inverted = [1 - bit for bit in bitvec]
         # Add 1
-        if len(bitvec) > 32:
+        if len(bitvec) == 64:
             one = [1] + [0] *63
         else:
             one = [1] + [0] * 31
@@ -132,6 +132,9 @@ class ALU:
         result, carry_out = self._add_bitvec(a_vec, b_vec, carry_in=0)
         self._update_flags(result, carry_out, a_vec[31], b_vec[31])
         
+        if isinstance(a,list) or isinstance(b,list):
+            return result
+
         return self._from_bitvec(result)
     
     def sub(self, a, b):
@@ -154,6 +157,8 @@ class ALU:
 
         if isinstance(a,list) or isinstance(b,list):
             return result
+        if self.N:
+            return self._bitvec_to_signed(result)
         if len(result) > 32:
             return self.__from_64bitvec(result)
         else:
