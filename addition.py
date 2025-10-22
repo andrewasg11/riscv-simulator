@@ -13,7 +13,9 @@ class ALU:
     
     def _to_bitvec(self, value):
         """Convert integer to 32-bit vector (list of 0/1)."""
-        if isinstance(value, str):
+        if isinstance(value,list):
+            return value
+        elif isinstance(value, str):
             # Binary string input
             value = value.replace('0b', '')
             if len(value) > 32:
@@ -25,6 +27,25 @@ class ALU:
             value = value & 0xFFFFFFFF  # Mask to 32 bits
             return [(value >> i) & 1 for i in range(32)]
     
+    def _to_64_bitvec(self,value):
+        if isinstance(value,list):
+            pass
+        elif isinstance(value,str):
+            value = value.replace('0b','')
+            if len(value) > 64 & len(value) < 33:
+                raise ValueError("Binary string exceeds 64 bits")
+            value = value.zfill(64)
+            return [int(b) for b in value]
+        else:
+            value = value & 0xFFFFFFFFFFFFFFFF
+            return[(value >> i) & 1 for i in range(64)]
+    def __from_64bitvec(self,bitvec):
+        result = 0
+        for i in range(64):
+            if bitvec[i]:
+                result |= (1<<i)
+        return result
+
     def _from_bitvec(self, bitvec):
         """Convert 32-bit vector to unsigned integer."""
         result = 0
@@ -59,7 +80,10 @@ class ALU:
         Add two 32-bit vectors bit by bit.
         Returns: (result_bitvec, final_carry)
         """
-        result = [0] * 32
+        if len(a) > 32 or len(b) > 32:
+            result = [0] * 32
+        else:
+            result = [0] * 32
         carry = carry_in
         
         for i in range(32):
@@ -72,7 +96,10 @@ class ALU:
         # Invert all bits
         inverted = [1 - bit for bit in bitvec]
         # Add 1
-        one = [1] + [0] * 31
+        if len(bitvec) > 32:
+            one = [1] + [0] *63
+        else:
+            one = [1] + [0] * 31
         result, _ = self._add_bitvec(inverted, one)
         return result
     
@@ -124,8 +151,13 @@ class ALU:
         
         # For subtraction, flags are based on a + (-b)
         self._update_flags(result, carry_out, a_vec[31], neg_b[31])
-        
-        return self._from_bitvec(result)
+
+        if isinstance(a,list) or isinstance(b,list):
+            return result
+        if len(result) > 32:
+            return self.__from_64bitvec(result)
+        else:
+            return self._from_bitvec(result)
     
     def addi(self, a, immediate):
         """
@@ -133,6 +165,42 @@ class ALU:
         Returns: 32-bit result as unsigned integer
         """
         return self.add(a, immediate)
+    
+    def div(self, a, b):
+        """
+        DIV operation: a / b
+        recieves a remainder a and divisor b
+        """
+
+        aNeg = False
+        bNeg = False
+        remainder = self._to_64_bitvec(a)
+        divisor = self._to_bitvec(b)
+        if remainder[-1]:
+            aNeg = True
+            remainder = self._twos_complement(remainder)
+        if divisor[-1]:
+            bNeg = True
+            divisor = self._twos_complement(divisor)
+        divisor = self._to_bitvec(0) + divisor
+        quotient = [0] * 32
+
+        for i in range(len(quotient)+1):
+            remainder = self.sub(remainder,divisor)
+
+            if remainder[-1]:
+                remainder = self.add(remainder,divisor)
+                quotient.insert(0,0)
+                quotient.pop(-1)
+            else:
+                quotient.insert(0,1)
+                quotient.pop(-1)
+            divisor.pop(0)
+            divisor.append(0)
+        if aNeg ^ bNeg:
+            quotient = self._twos_complement(quotient)
+            return self._bitvec_to_signed(quotient)
+        return self._from_bitvec(quotient)
     
     # ========== FLOATING POINT OPERATIONS ==========
     
