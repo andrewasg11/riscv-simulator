@@ -120,7 +120,40 @@ class ALU:
         # - Adding two negative numbers yields positive result
         result_msb = result[31]
         self.V = (a_msb == b_msb) and (a_msb != result_msb)
+    def sll(self,bin):
+        """
+        shift left logical
+        shifts binary array towards most significant bit
+        """
+        x = len(bin)-1
     
+        while(x):
+            bin[x] = bin[x-1]
+            x = x - 1
+        bin[0] = 0
+        return bin
+    def srl(self,bin):
+        """
+        shift right logical
+        shifts binary array towards least significant bit
+        """
+        x = 0
+        while(x<len(bin)-1):
+            bin[x] = bin[x+1]
+            x = x+1
+        bin[-1] = 0
+        return bin
+    def sra(self,bin):
+        """
+        shift right arithmetic
+        shifts binary array towards least significant bit
+        keeps signed bit the same
+        """
+        x = 0
+        while(x<len(bin)-1):
+            bin[x] = bin[x+1]
+            x = x+1
+        return bin
     def add(self, a, b):
         """
         ADD operation: a + b
@@ -198,13 +231,11 @@ class ALU:
 
             if remainder[-1]:
                 remainder = self.add(remainder,divisor)
-                quotient.insert(0,0)
-                quotient.pop(-1)
+                quotient = self.sll(quotient)
             else:
-                quotient.insert(0,1)
-                quotient.pop(-1)
-            divisor.pop(0)
-            divisor.append(0)
+                quotient = self.sll(quotient)
+                quotient[0] = 1
+            divisor = self.sra(divisor)
         if remNeg ^ divNeg:
             quotient = self._twos_complement(quotient)
             return self._bitvec_to_signed(quotient)
@@ -234,18 +265,16 @@ class ALU:
 
             if remainder[-1]:
                 remainder = self.add(remainder,divisor)
-                quotient.insert(0,0)
-                quotient.pop(-1)
+                quotient = self.sll(quotient)
             else:
-                quotient.insert(0,1)
-                quotient.pop(-1)
-            divisor.pop(0)
-            divisor.append(0)
+                quotient = self.sll(quotient)
+                quotient[0] = 1
+            divisor = self.sra(divisor)
         if remNeg:
             remainder = self._twos_complement(remainder)
             return self._bitvec_to_signed(remainder)
         return self._from_bitvec(remainder)
-        
+    
         
     # ========== FLOATING POINT OPERATIONS ==========
     
