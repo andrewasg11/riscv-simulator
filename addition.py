@@ -177,15 +177,18 @@ class ALU:
         recieves a remainder a and divisor b
         """
 
-        aNeg = False
-        bNeg = False
+        remNeg = False
+        divNeg = False
         remainder = self._to_64_bitvec(a)
         divisor = self._to_bitvec(b)
+        if divisor.count(0) == 32:
+            print("cannot divide by 0")
+            return
         if remainder[-1]:
-            aNeg = True
+            remNeg = True
             remainder = self._twos_complement(remainder)
         if divisor[-1]:
-            bNeg = True
+            divNeg = True
             divisor = self._twos_complement(divisor)
         divisor = self._to_bitvec(0) + divisor
         quotient = [0] * 32
@@ -202,11 +205,48 @@ class ALU:
                 quotient.pop(-1)
             divisor.pop(0)
             divisor.append(0)
-        if aNeg ^ bNeg:
+        if remNeg ^ divNeg:
             quotient = self._twos_complement(quotient)
             return self._bitvec_to_signed(quotient)
         return self._from_bitvec(quotient)
     
+    def rem(self,a,b):
+        """
+        REM operation: a % b
+        recieves a remainder a and divisor b
+        """
+        remNeg = False
+        remainder = self._to_64_bitvec(a)
+        divisor = self._to_bitvec(b)
+        if divisor.count(0) == 32:
+            print("Cannot divide by 0")
+            return
+        if remainder[-1]:
+            remNeg = True
+            remainder = self._twos_complement(remainder)
+        if divisor[-1]:
+            divisor = self._twos_complement(divisor)
+        divisor = self._to_bitvec(0) + divisor
+        quotient = [0] * 32
+
+        for i in range(len(quotient)+1):
+            remainder = self.sub(remainder,divisor)
+
+            if remainder[-1]:
+                remainder = self.add(remainder,divisor)
+                quotient.insert(0,0)
+                quotient.pop(-1)
+            else:
+                quotient.insert(0,1)
+                quotient.pop(-1)
+            divisor.pop(0)
+            divisor.append(0)
+        if remNeg:
+            remainder = self._twos_complement(remainder)
+            return self._bitvec_to_signed(remainder)
+        return self._from_bitvec(remainder)
+        
+        
     # ========== FLOATING POINT OPERATIONS ==========
     
     def _float_to_bitvec(self, value):
