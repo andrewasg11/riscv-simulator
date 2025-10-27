@@ -56,6 +56,10 @@ class ALU:
     
     def _bitvec_to_signed(self, bitvec):
         """Convert 32-bit vector to signed integer (two's complement)."""
+        if len(bitvec) != 32:
+            unsigned = self._from_64bitvec(bitvec)
+            if bitvec[-1]:
+                return unsigned - (1 << 64)
         unsigned = self._from_bitvec(bitvec)
         if bitvec[31]:  # MSB set = negative
             return unsigned - (1 << 32)
@@ -203,7 +207,31 @@ class ALU:
         Returns: 32-bit result as unsigned integer
         """
         return self.add(a, immediate)
-    
+    def mul(self,a,b):
+        aNeg = False
+        bNeg = False
+
+        multiplicand = self._to_bitvec(a)
+        multiplier = self._to_bitvec(b)
+        if multiplicand[-1]:
+            aNeg = True
+            multiplicand = self._twos_complement(multiplicand)
+        if multiplier[-1]:
+            bNeg = True
+            multiplier = self._twos_complement(multiplier)
+        multiplicand = multiplicand + self._to_bitvec(0)
+        product = [0] * 64
+
+        for i in range(len(multiplier)):
+            if multiplier[0]:
+                product = self.add(multiplicand,product)
+            multiplicand = self.sll(multiplicand)
+            multiplier = self.srl(multiplier)
+        if aNeg ^ bNeg:
+            product = self._twos_complement(product)
+            return self._bitvec_to_signed(product)
+        return self.__from_64bitvec(product)
+
     def div(self, a, b):
         """
         DIV operation: a / b
@@ -700,6 +728,9 @@ def interactive_cli():
     print("  add <a> <b>       - Add two integers")
     print("  sub <a> <b>       - Subtract integers")
     print("  addi <a> <imm>    - Add immediate")
+    print("  mul <a> <b>       - Multiply two integers")
+    print("  div <a> <b>       - Divide two integers")
+    print("  rem <a> <b>       - Divide two integers returns remainder")
     print("\nFloating Point Commands:")
     print("  fadd <a> <b>      - Add floats")
     print("  fsub <a> <b>      - Subtract floats")
@@ -725,7 +756,7 @@ def interactive_cli():
                 test_alu()
             elif op == 'ftest':
                 test_floating_point()
-            elif op in ['add', 'sub', 'addi']:
+            elif op in ['add', 'sub', 'addi','mul','div','rem']:
                 if len(cmd) != 3:
                     print("Error: Expected 2 arguments")
                     continue
@@ -737,8 +768,14 @@ def interactive_cli():
                     result = alu.add(a, b)
                 elif op == 'sub':
                     result = alu.sub(a, b)
-                else:
+                elif op == 'addi':
                     result = alu.addi(a, b)
+                elif op == 'mul':
+                    result = alu.mul(a,b)
+                elif op == 'div':
+                    result = alu.div(a,b)
+                else:
+                    result = alu.rem(a,b)
                 
                 fmt = alu.format_result(result)
                 print(f"\nResult:")
