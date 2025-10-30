@@ -57,7 +57,7 @@ class ALU:
     def _bitvec_to_signed(self, bitvec):
         """Convert 32-bit vector to signed integer (two's complement)."""
         if len(bitvec) != 32:
-            unsigned = self._from_64bitvec(bitvec)
+            unsigned = self.__from_64bitvec(bitvec)
             if bitvec[-1]:
                 return unsigned - (1 << 64)
         unsigned = self._from_bitvec(bitvec)
