@@ -1,3 +1,4 @@
+#Instruction types
 """
 R-type instructions (for register)
 opcode(basic operation of instruction eg. add,sub,ld,st): = [0:6]
@@ -36,3 +37,29 @@ rs1: [15:19]
 rs2: [20:24]
 immediate: [25:31]
 """
+
+
+#-------------------------------------------------------------------------------
+#MULTIPLEXORS
+"""
+opcode_multiplexor: analyzed first 7 bytes of code. determines operation(eg. add, subtract,lw, sw)
+case: 001, 010, 011...  called every time
+
+rd_multiplexor: determines register destination. bits [7:11]. called on R-type, I-type
+
+immediate1_multiplexor: first immediate, bits [7:11]. called on S-type, and B-type opcode instructions
+
+funct3_ multiplexor: additional opcode [12:14] bits. called on every type
+
+rs1_multiplexor: register 1 [15:19] called on every type
+
+rs2_multiplexor: register 2 [20:24] called on R-type, S-type, B-type
+
+immediate_imultiplexor: registor [20:31] called on I-type
+
+immediate2_multiplexor: [25:31] called on S-type, B-type
+
+funct7_multiplexor: additional opcode [25:31] called on R-type
+
+"""
+
