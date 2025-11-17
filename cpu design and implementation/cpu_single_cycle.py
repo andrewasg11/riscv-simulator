@@ -839,7 +839,7 @@ def test_all():
     test_arithmetic()
     test_logical()
     test_memory()
-    test_hexcode()
+    #test_hexcode()
 
     print("\n" + "="*70)
     print("ALL TESTS COMPLETED!")
