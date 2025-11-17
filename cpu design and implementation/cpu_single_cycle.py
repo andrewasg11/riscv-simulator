@@ -21,6 +21,9 @@ class ALU:
     
     def __init__(self):
         self.zero_flag = False
+        self.N = False
+        self.C = False
+        self.V = False
     
     def execute(self, op, a, b):
         """
@@ -38,10 +41,10 @@ class ALU:
         b = b & 0xFFFFFFFF
         
         if op == self.OP_ADD:
-            result = (a + b) & 0xFFFFFFFF
+            result = self.add(a,b)
         
         elif op == self.OP_SUB:
-            result = (a - b) & 0xFFFFFFFF
+            result = self.sub(a,b)
         
         elif op == self.OP_AND:
             result = a & b
@@ -94,6 +97,202 @@ class ALU:
         if value & 0x80000000:
             return value - 0x100000000
         return value
+    def _to_bitvec(self, value):
+        """Convert integer to 32-bit vector (list of 0/1)."""
+        if isinstance(value,list):
+            return value
+        elif isinstance(value, str):
+            # Binary string input
+            value = value.replace('0b', '')
+            if len(value) > 32:
+                raise ValueError("Binary string exceeds 32 bits")
+            value = value.zfill(32)
+            return [int(b) for b in value]
+        else:
+            # Integer input - handle two's complement
+            value = value & 0xFFFFFFFF  # Mask to 32 bits
+            return [(value >> i) & 1 for i in range(32)]
+    
+    def _to_64_bitvec(self,value):
+        if isinstance(value,list):
+            pass
+        elif isinstance(value,str):
+            value = value.replace('0b','')
+            if len(value) > 64 & len(value) < 33:
+                raise ValueError("Binary string exceeds 64 bits")
+            value = value.zfill(64)
+            return [int(b) for b in value]
+        else:
+            value = value & 0xFFFFFFFFFFFFFFFF
+            return[(value >> i) & 1 for i in range(64)]
+    def __from_64bitvec(self,bitvec):
+        result = 0
+        for i in range(64):
+            if bitvec[i]:
+                result |= (1<<i)
+        return result
+
+    def _from_bitvec(self, bitvec):
+        """Convert 32-bit vector to unsigned integer."""
+        result = 0
+        for i in range(32):
+            if bitvec[i]:
+                result |= (1 << i)
+        return result
+    
+    def _bitvec_to_signed(self, bitvec):
+        """Convert 32-bit vector to signed integer (two's complement)."""
+        if len(bitvec) != 32:
+            unsigned = self.__from_64bitvec(bitvec)
+            if bitvec[-1]:
+                return unsigned - (1 << 64)
+        unsigned = self._from_bitvec(bitvec)
+        if bitvec[31]:  # MSB set = negative
+            return unsigned - (1 << 32)
+        return unsigned
+    
+    def _full_adder(self, a, b, carry_in):
+        """
+        Single-bit full adder.
+        Returns: (sum, carry_out)
+        """
+        # XOR for sum without carry
+        sum_without_carry = a ^ b
+        sum_bit = sum_without_carry ^ carry_in
+        
+        # Carry out occurs if at least 2 inputs are 1
+        carry_out = (a & b) | (carry_in & sum_without_carry)
+        
+        return sum_bit, carry_out
+    
+    def _add_bitvec(self, a, b, carry_in=0):
+        """
+        Add two 32-bit vectors bit by bit.
+        Returns: (result_bitvec, final_carry)
+        """
+        if len(a) > 32 or len(b) > 32:
+            result = [0] * 64
+        else:
+            result = [0] * 32
+        carry = carry_in
+        
+        for i in range(len(result)):
+            result[i], carry = self._full_adder(a[i], b[i], carry)
+        
+        return result, carry
+    
+    def _twos_complement(self, bitvec):
+        """Compute two's complement: invert all bits and add 1."""
+        # Invert all bits
+        inverted = [1 - bit for bit in bitvec]
+        # Add 1
+        if len(bitvec) == 64:
+            one = [1] + [0] *63
+        else:
+            one = [1] + [0] * 31
+        result, _ = self._add_bitvec(inverted, one)
+        return result
+    
+    def _update_flags(self, result, carry_out, a_msb, b_msb):
+        """Update ALU flags based on operation result."""
+        # N: Negative (MSB is 1)
+        self.N = bool(result[31])
+        
+        # Z: Zero (all bits are 0)
+        self.Z = all(bit == 0 for bit in result)
+        
+        # C: Carry out of MSB
+        self.C = carry_out
+        
+        # V: Signed overflow
+        # Overflow occurs when:
+        # - Adding two positive numbers yields negative result, OR
+        # - Adding two negative numbers yields positive result
+        result_msb = result[31]
+        self.V = (a_msb == b_msb) and (a_msb != result_msb)
+    def sll(self,bin):
+        """
+        shift left logical
+        shifts binary array towards most significant bit
+        """
+        x = len(bin)-1
+    
+        while(x):
+            bin[x] = bin[x-1]
+            x = x - 1
+        bin[0] = 0
+        return bin
+    def srl(self,bin):
+        """
+        shift right logical
+        shifts binary array towards least significant bit
+        """
+        x = 0
+        while(x<len(bin)-1):
+            bin[x] = bin[x+1]
+            x = x+1
+        bin[-1] = 0
+        return bin
+    def sra(self,bin):
+        """
+        shift right arithmetic
+        shifts binary array towards least significant bit
+        keeps signed bit the same
+        """
+        x = 0
+        while(x<len(bin)-1):
+            bin[x] = bin[x+1]
+            x = x+1
+        return bin
+    def add(self, a, b):
+        """
+        ADD operation: a + b
+        Returns: 32-bit result as unsigned integer
+        """
+        a_vec = self._to_bitvec(a)
+        b_vec = self._to_bitvec(b)
+        
+        result, carry_out = self._add_bitvec(a_vec, b_vec, carry_in=0)
+        self._update_flags(result, carry_out, a_vec[31], b_vec[31])
+        
+        if isinstance(a,list) or isinstance(b,list):
+            return result
+
+        return self._from_bitvec(result)
+    
+    def sub(self, a, b):
+        """
+        SUB operation: a - b
+        Implemented as a + (-b) using two's complement
+        Returns: 32-bit result as unsigned integer
+        """
+        a_vec = self._to_bitvec(a)
+        b_vec = self._to_bitvec(b)
+        
+        # Compute -b using two's complement
+        neg_b = self._twos_complement(b_vec)
+        
+        # Add a + (-b)
+        result, carry_out = self._add_bitvec(a_vec, neg_b, carry_in=0)
+        
+        # For subtraction, flags are based on a + (-b)
+        self._update_flags(result, carry_out, a_vec[31], neg_b[31])
+
+        if isinstance(a,list) or isinstance(b,list):
+            return result
+        if self.N:
+            return self._bitvec_to_signed(result)
+        if len(result) > 32:
+            return self.__from_64bitvec(result)
+        else:
+            return self._from_bitvec(result)
+    
+    def addi(self, a, immediate):
+        """
+        ADDI operation: a + immediate (convenience for CLI)
+        Returns: 32-bit result as unsigned integer
+        """
+        return self.add(a, immediate)
 
 
 class RegisterFile:
@@ -526,6 +725,8 @@ def test_arithmetic():
     
     cpu = CPU()
     
+    
+
     program = [
         assemble_instruction(0x13, rd=1, rs1=0, imm=10, funct3=0),
         assemble_instruction(0x13, rd=2, rs1=0, imm=5, funct3=0),
@@ -542,6 +743,7 @@ def test_arithmetic():
     assert cpu.registers.read(2) == 5
     assert cpu.registers.read(3) == 15
     assert cpu.registers.read(4) == 5
+    assert cpu.registers.read(3) == 15
     print("\n✓ Arithmetic tests passed!")
 
 
@@ -596,7 +798,38 @@ def test_memory():
     assert cpu.registers.read(3) == 0x42
     print("\n✓ Memory tests passed!")
 
+'''
+def test_hexcode():
+    """Test hex code"""
+    print("\n" + "="*70)
+    print("TEST 4: HEX INSTRUCTIONS")
+    print("="*70)
 
+    cpu = CPU()
+
+    instructions = []
+    program = []
+    file_path = "test_base.hex"
+
+    try:
+        with open(file_path, 'r') as file:
+            for line_number, line in enumerate(file, 1): # enumerate adds line numbers, starting from 1
+                print(f"Line {line_number}: {line.strip()}")
+                hex_string = line.strip()
+                int_value = int(hex_string,16)
+                instructions.append(int_value)
+    except FileNotFoundError:
+        print(f"Error: The file '{file_path}' was not found.")
+    
+    for i in instructions:
+        signals = cpu.control.decode(i)
+        program.append(assemble_instruction(signals['opcode'],signals['rd'],signals['rs1'],signals['rs2'],signals['funct3'],signals['funct7'],signals['imm']))
+
+    cpu.load_program(program)
+    cpu.run(verbose=True)
+    cpu.registers.print_registers()
+'''
+    
 def test_all():
     """Run all tests."""
     print("\n" + "="*70)
@@ -606,7 +839,8 @@ def test_all():
     test_arithmetic()
     test_logical()
     test_memory()
-    
+    test_hexcode()
+
     print("\n" + "="*70)
     print("ALL TESTS COMPLETED!")
     print("="*70)
