@@ -701,7 +701,7 @@ class CPU:
             return 'AUIPC'
         return 'UNKNOWN'
 
-
+#Need to include B-type
 def assemble_instruction(opcode, rd=0, rs1=0, rs2=0, funct3=0, funct7=0, imm=0):
     """Helper to manually assemble instructions."""
     if opcode == 0x33:  # R-type
@@ -798,7 +798,7 @@ def test_memory():
     assert cpu.registers.read(3) == 0x42
     print("\n✓ Memory tests passed!")
 
-'''
+
 def test_hexcode():
     """Test hex code"""
     print("\n" + "="*70)
@@ -809,8 +809,7 @@ def test_hexcode():
 
     instructions = []
     program = []
-    file_path = "test_base.hex"
-
+    file_path = r'cpu design and implementation\test_base.hex'
     try:
         with open(file_path, 'r') as file:
             for line_number, line in enumerate(file, 1): # enumerate adds line numbers, starting from 1
@@ -828,7 +827,7 @@ def test_hexcode():
     cpu.load_program(program)
     cpu.run(verbose=True)
     cpu.registers.print_registers()
-'''
+
     
 def test_all():
     """Run all tests."""
@@ -839,7 +838,7 @@ def test_all():
     test_arithmetic()
     test_logical()
     test_memory()
-    #test_hexcode()
+    test_hexcode()
 
     print("\n" + "="*70)
     print("ALL TESTS COMPLETED!")
